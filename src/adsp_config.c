@@ -1387,3 +1387,36 @@ void adsp_free(struct adsp *adsp)
 
 	free(adsp);
 }
+
+static void adsp_dump_config_v1_8(const struct fw_image_manifest_v1_8 *in, bool verbose)
+{
+	dump_cse(&in->cse_partition_dir_header, in->cse_partition_dir_entry);
+	dump_css_v1_8(&in->css);
+	dump_signed_pkg(&in->signed_pkg);
+	dump_partition_info_ext(&in->partition_info);
+	dump_adsp_file_ext_v1_8(&in->adsp_file_ext);
+	dump_fw_desc(&in->desc);
+}
+
+static int adsp_dump_config_v2_5(const struct fw_image_manifest_v2_5 *in, bool verbose)
+{
+	dump_cse(&in->cse_partition_dir_header, in->cse_partition_dir_entry);
+	dump_css_v1_8(&in->css);
+	dump_signed_pkg(&in->signed_pkg);
+	dump_partition_info_ext(&in->partition_info);
+	dump_adsp_file_ext_v2_5(&in->adsp_file_ext);
+	dump_fw_desc(&in->desc);
+}
+
+int adsp_dump_config(const struct adsp *in, bool verbose)
+{
+	if (in->man_v1_8) {
+		adsp_dump_config_v1_8(in->man_v1_8, verbose);
+		return 0;
+	}
+	if (in->man_v2_5) {
+		adsp_dump_config_v2_5(in->man_v2_5, verbose);
+		return 0;
+	}
+	return -EINVAL;
+}

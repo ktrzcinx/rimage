@@ -177,10 +177,12 @@ int main(int argc, char *argv[])
 		ret = adsp_parse_config(adsp_config, heap_adsp, image.verbose);
 		if (ret < 0)
 			goto out;
+		adsp_dump_config(heap_adsp, image.verbose);
 	} else if (mach) {
 		image.adsp = find_adsp(mach);
 		if (!image.adsp)
 			return -EINVAL;
+		adsp_dump_config(image.adsp, image.verbose);
 	} else {
 		fprintf(stderr, "error: Specify target machine\n");
 		return -EINVAL;
