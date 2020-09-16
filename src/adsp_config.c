@@ -281,6 +281,24 @@ static enum snd_sof_fw_blk_type zone_name_to_idx(const char *name)
 	return SOF_FW_BLK_TYPE_INVALID;
 }
 
+static void dump_adsp(const struct adsp *adsp)
+{
+	int i;
+
+	DUMP("\nadsp");
+	DUMP_KEY("name", "'%s'", adsp->name);
+	DUMP_KEY("machine_id", "%d", adsp->machine_id);
+	DUMP_KEY("image_size", "0x%x", adsp->image_size);
+	DUMP_KEY("dram_offset", "0x%x", adsp->dram_offset);
+	DUMP_KEY("exec_boot_ldr", "%d", adsp->exec_boot_ldr);
+	for (i = 0; i < ARRAY_SIZE(adsp->mem_zones); ++i) {
+		DUMP_KEY("mem_zone.idx", "%d", i);
+		DUMP_KEY("mem_zone.size", "0x%x", adsp->mem_zones[i].size);
+		DUMP_KEY("mem_zone.base", "0x%x", adsp->mem_zones[i].base);
+		DUMP_KEY("mem_zone.host_offset", "0x%x", adsp->mem_zones[i].host_offset);
+	}
+}
+
 static int parse_adsp(const toml_table_t *toml, struct parse_ctx *pctx, struct adsp *out,
 		      bool verbose)
 {
@@ -387,20 +405,8 @@ static int parse_adsp(const toml_table_t *toml, struct parse_ctx *pctx, struct a
 			return ret;
 	}
 
-	if (verbose) {
-		DUMP("\nadsp");
-		DUMP_KEY("name", "'%s'", out->name);
-		DUMP_KEY("machine_id", "%d", out->machine_id);
-		DUMP_KEY("image_size", "0x%x", out->image_size);
-		DUMP_KEY("dram_offset", "0x%x", out->dram_offset);
-		DUMP_KEY("exec_boot_ldr", "%d", out->exec_boot_ldr);
-		for (i = 0; i < ARRAY_SIZE(out->mem_zones); ++i) {
-			DUMP_KEY("mem_zone.idx", "%d", i);
-			DUMP_KEY("mem_zone.size", "0x%x", out->mem_zones[i].size);
-			DUMP_KEY("mem_zone.base", "0x%x", out->mem_zones[i].base);
-			DUMP_KEY("mem_zone.host_offset", "0x%x", out->mem_zones[i].host_offset);
-		}
-	}
+	if (verbose)
+		dump_adsp(out);
 
 	/*
 	 * values set in other places in code:
@@ -412,9 +418,26 @@ static int parse_adsp(const toml_table_t *toml, struct parse_ctx *pctx, struct a
 	return 0;
 }
 
-static int parse_mem_cse(const toml_table_t *toml, struct parse_ctx *pctx,
-			 struct CsePartitionDirHeader *hdr, struct CsePartitionDirEntry *out,
-			 int entry_capacity, bool verbose)
+static void dump_cse(const struct CsePartitionDirHeader *cse_header,
+		     const struct CsePartitionDirEntry *cse_entry)
+{
+	int i;
+
+	DUMP("\ncse");
+	DUMP_KEY("partition_name", "'%s'", cse_header->partition_name);
+	DUMP_KEY("header_version", "%d", cse_header->header_version);
+	DUMP_KEY("entry_version", "%d", cse_header->entry_version);
+	DUMP_KEY("nb_entries", "%d", cse_header->nb_entries);
+	for (i = 0; i < cse_header->nb_entries; ++i) {
+		DUMP_KEY("entry.name", "'%s'", cse_entry[i].entry_name);
+		DUMP_KEY("entry.offset", "0x%x", cse_entry[i].offset);
+		DUMP_KEY("entry.length", "0x%x", cse_entry[i].length);
+	}
+}
+
+static int parse_cse(const toml_table_t *toml, struct parse_ctx *pctx,
+		     struct CsePartitionDirHeader *hdr, struct CsePartitionDirEntry *out,
+		     int entry_capacity, bool verbose)
 {
 	toml_array_t *cse_entry_array;
 	toml_table_t *cse_entry;
@@ -496,18 +519,8 @@ static int parse_mem_cse(const toml_table_t *toml, struct parse_ctx *pctx,
 
 	hdr->nb_entries = toml_array_nelem(cse_entry_array);
 
-	if (verbose) {
-		DUMP("\ncse");
-		DUMP_KEY("partition_name", "'%s'", hdr->partition_name);
-		DUMP_KEY("header_version", "%d", hdr->header_version);
-		DUMP_KEY("entry_version", "%d", hdr->entry_version);
-		DUMP_KEY("nb_entries", "%d", hdr->nb_entries);
-		for (i = 0; i < hdr->nb_entries; ++i) {
-			DUMP_KEY("entry.name", "'%s'", out[i].entry_name);
-			DUMP_KEY("entry.offset", "'0x%x", out[i].offset);
-			DUMP_KEY("entry.length", "'0x%x", out[i].length);
-		}
-	}
+	if (verbose)
+		dump_cse(hdr, out);
 
 	/*
 	 * values set in other places in code:
@@ -517,8 +530,21 @@ static int parse_mem_cse(const toml_table_t *toml, struct parse_ctx *pctx,
 	return 0;
 }
 
-static int parse_mem_css_v1_8(const toml_table_t *toml, struct parse_ctx *pctx,
-			      struct css_header_v1_8 *out, bool verbose)
+static void dump_css_v1_8(const struct css_header_v1_8 *css)
+{
+	DUMP("\ncss");
+	DUMP_KEY("header_type", "%d", css->header_type);
+	DUMP_KEY("header_len", "%d", css->header_len);
+	DUMP_KEY("header_version", "0x%x", css->header_version);
+	DUMP_KEY("module_vendor", "0x%x", css->module_vendor);
+	DUMP_KEY("size", "%d", css->size);
+	DUMP_KEY("svn", "%d", css->svn);
+	DUMP_KEY("modulus_size", "%d", css->modulus_size);
+	DUMP_KEY("exponent_size", "%d", css->exponent_size);
+}
+
+static int parse_css_v1_8(const toml_table_t *toml, struct parse_ctx *pctx,
+			  struct css_header_v1_8 *out, bool verbose)
 {
 	static const uint8_t hdr_id[4] = MAN_CSS_HDR_ID;
 	struct parse_ctx ctx;
@@ -577,17 +603,8 @@ static int parse_mem_css_v1_8(const toml_table_t *toml, struct parse_ctx *pctx,
 	if (ret < 0)
 		return ret;
 
-	if (verbose) {
-		DUMP("\ncss");
-		DUMP_KEY("header_type", "%d", out->header_type);
-		DUMP_KEY("header_len", "%d", out->header_len);
-		DUMP_KEY("header_version", "0x%x", out->header_version);
-		DUMP_KEY("module_vendor", "0x%x", out->module_vendor);
-		DUMP_KEY("size", "%d", out->size);
-		DUMP_KEY("svn", "%d", out->svn);
-		DUMP_KEY("modulus_size", "%d", out->modulus_size);
-		DUMP_KEY("exponent_size", "%d", out->exponent_size);
-	}
+	if (verbose)
+		dump_css_v1_8(out);
 
 	/*
 	 * values set in other places in code:
@@ -601,8 +618,29 @@ static int parse_mem_css_v1_8(const toml_table_t *toml, struct parse_ctx *pctx,
 	return 0;
 }
 
-static int parse_mem_signed_pkg(const toml_table_t *toml, struct parse_ctx *pctx,
-				struct signed_pkg_info_ext *out, bool verbose)
+static void dump_signed_pkg(const struct signed_pkg_info_ext *signed_pkg)
+{
+	int i;
+
+	DUMP("\nsigned_pkg");
+	DUMP_KEY("name", "'%s'", signed_pkg->name);
+	DUMP_KEY("vcn", "%d", signed_pkg->vcn);
+	DUMP_KEY("svn", "%d", signed_pkg->svn);
+	DUMP_KEY("fw_type", "%d", signed_pkg->fw_type);
+	DUMP_KEY("fw_sub_type", "%d", signed_pkg->fw_sub_type);
+	for (i = 0; i < ARRAY_SIZE(signed_pkg->bitmap); ++i)
+		DUMP_KEY("bitmap", "%d", signed_pkg->bitmap[i]);
+	for (i = 0; i < ARRAY_SIZE(signed_pkg->module); ++i) {
+		DUMP_KEY("meta.name", "'%s'", signed_pkg->module[i].name);
+		DUMP_KEY("meta.type", "0x%x", signed_pkg->module[i].type);
+		DUMP_KEY("meta.hash_algo", "0x%x", signed_pkg->module[i].hash_algo);
+		DUMP_KEY("meta.hash_size", "0x%x", signed_pkg->module[i].hash_size);
+		DUMP_KEY("meta.meta_size", "%d", signed_pkg->module[i].meta_size);
+	}
+}
+
+static int parse_signed_pkg(const toml_table_t *toml, struct parse_ctx *pctx,
+			    struct signed_pkg_info_ext *out, bool verbose)
 {
 	struct signed_pkg_info_module *mod;
 	toml_array_t *bitmap_array;
@@ -727,23 +765,8 @@ static int parse_mem_signed_pkg(const toml_table_t *toml, struct parse_ctx *pctx
 			return ret;
 	}
 
-	if (verbose) {
-		DUMP("\nsigned_pkg");
-		DUMP_KEY("name", "'%s'", out->name);
-		DUMP_KEY("vcn", "%d", out->vcn);
-		DUMP_KEY("svn", "%d", out->svn);
-		DUMP_KEY("fw_type", "%d", out->fw_type);
-		DUMP_KEY("fw_sub_type", "%d", out->fw_sub_type);
-		for (i = 0; i < ARRAY_SIZE(out->bitmap); ++i)
-			DUMP_KEY("bitmap", "%d", out->bitmap[i]);
-		for (i = 0; i < ARRAY_SIZE(out->module); ++i) {
-			DUMP_KEY("meta.name", "'%s'", out->module[i].name);
-			DUMP_KEY("meta.type", "'0x%x", out->module[i].type);
-			DUMP_KEY("meta.hash_algo", "0x%x", out->module[i].hash_algo);
-			DUMP_KEY("meta.hash_size", "0x%x", out->module[i].hash_size);
-			DUMP_KEY("meta.meta_size", "%d", out->module[i].meta_size);
-		}
-	}
+	if (verbose)
+		dump_signed_pkg(out);
 
 	/*
 	 * values set in other places in code:
@@ -753,8 +776,23 @@ static int parse_mem_signed_pkg(const toml_table_t *toml, struct parse_ctx *pctx
 	return 0;
 }
 
-static int parse_mem_partition_info_ext(const toml_table_t *toml, struct parse_ctx *pctx,
-					struct partition_info_ext *out, bool verbose)
+static void dump_partition_info_ext(const struct partition_info_ext *part_info)
+{
+	int i;
+
+	DUMP("\npartition_info");
+	DUMP_KEY("name", "'%s'", part_info->name);
+	DUMP_KEY("part_version", "0x%x", part_info->part_version);
+	DUMP_KEY("instance_id", "%d", part_info->instance_id);
+	for (i = 0; i < ARRAY_SIZE(part_info->module); ++i) {
+		DUMP_KEY("module.name", "'%s'", part_info->module[i].name);
+		DUMP_KEY("module.meta_size", "0x%x", part_info->module[i].meta_size);
+		DUMP_KEY("module.type", "0x%x", part_info->module[i].type);
+	}
+}
+
+static int parse_partition_info_ext(const toml_table_t *toml, struct parse_ctx *pctx,
+				    struct partition_info_ext *out, bool verbose)
 {
 	static const uint8_t module_reserved[3] = {0x00, 0xff, 0xff};
 	struct partition_info_module *mod;
@@ -854,17 +892,8 @@ static int parse_mem_partition_info_ext(const toml_table_t *toml, struct parse_c
 			return ret;
 	}
 
-	if (verbose) {
-		DUMP("\npartition_info");
-		DUMP_KEY("name", "'%s'", out->name);
-		DUMP_KEY("part_version", "0x%x", out->part_version);
-		DUMP_KEY("instance_id", "%d", out->instance_id);
-		for (i = 0; i < ARRAY_SIZE(out->module); ++i) {
-			DUMP_KEY("module.name", "'%s'", out->module[i].name);
-			DUMP_KEY("module.meta_size", "0x%x", out->module[i].meta_size);
-			DUMP_KEY("module.type", "0x%x", out->module[i].type);
-		}
-	}
+	if (verbose)
+		dump_partition_info_ext(out);
 
 	/*
 	 * values set in other places in code:
@@ -876,8 +905,20 @@ static int parse_mem_partition_info_ext(const toml_table_t *toml, struct parse_c
 	return 0;
 }
 
-static int parse_mem_adsp_file_ext_v1_8(const toml_table_t *toml, struct parse_ctx *pctx,
-					struct sof_man_adsp_meta_file_ext_v1_8 *out, bool verbose)
+static void dump_adsp_file_ext_v1_8(const struct sof_man_adsp_meta_file_ext_v1_8 *adsp_file)
+{
+	int i;
+
+	DUMP("\nadsp_file_ext");
+	DUMP_KEY("imr_type", "0x%x", adsp_file->imr_type);
+	for (i = 0; i < ARRAY_SIZE(adsp_file->comp_desc); ++i) {
+		DUMP_KEY("comp.version", "0x%x", adsp_file->comp_desc[i].version);
+		DUMP_KEY("comp.base_offset", "0x%x", adsp_file->comp_desc[i].base_offset);
+	}
+}
+
+static int parse_adsp_file_ext_v1_8(const toml_table_t *toml, struct parse_ctx *pctx,
+				    struct sof_man_adsp_meta_file_ext_v1_8 *out, bool verbose)
 {
 	struct sof_man_component_desc_v1_8 *desc;
 	toml_table_t *adsp_file_ext;
@@ -945,14 +986,8 @@ static int parse_mem_adsp_file_ext_v1_8(const toml_table_t *toml, struct parse_c
 			return ret;
 	}
 
-	if (verbose) {
-		DUMP("\nadsp_file_ext");
-		DUMP_KEY("imr_type", "0x%x", out->imr_type);
-		for (i = 0; i < ARRAY_SIZE(out->comp_desc); ++i) {
-			DUMP_KEY("comp.version", "0x%x", out->comp_desc[i].version);
-			DUMP_KEY("comp.base_offset", "0x%x", out->comp_desc[i].base_offset);
-		}
-	}
+	if (verbose)
+		dump_adsp_file_ext_v1_8(out);
 
 	/*
 	 * values set in other places in code:
@@ -963,8 +998,20 @@ static int parse_mem_adsp_file_ext_v1_8(const toml_table_t *toml, struct parse_c
 	return 0;
 }
 
-static int parse_mem_adsp_file_ext_v2_5(const toml_table_t *toml, struct parse_ctx *pctx,
-					struct sof_man_adsp_meta_file_ext_v2_5 *out, bool verbose)
+static void dump_adsp_file_ext_v2_5(const struct sof_man_adsp_meta_file_ext_v2_5 *adsp_file)
+{
+	int i;
+
+	DUMP("\nadsp_file");
+	DUMP_KEY("imr_type", "0x%x", adsp_file->imr_type);
+	for (i = 0; i < ARRAY_SIZE(adsp_file->comp_desc); ++i) {
+		DUMP_KEY("comp.version", "0x%x", adsp_file->comp_desc[i].version);
+		DUMP_KEY("comp.base_offset", "0x%x", adsp_file->comp_desc[i].base_offset);
+	}
+}
+
+static int parse_adsp_file_ext_v2_5(const toml_table_t *toml, struct parse_ctx *pctx,
+				    struct sof_man_adsp_meta_file_ext_v2_5 *out, bool verbose)
 {
 	struct sof_man_component_desc_v2_5 *desc;
 	toml_table_t *adsp_file_ext;
@@ -1031,14 +1078,8 @@ static int parse_mem_adsp_file_ext_v2_5(const toml_table_t *toml, struct parse_c
 			return ret;
 	}
 
-	if (verbose) {
-		DUMP("\nadsp_file");
-		DUMP_KEY("imr_type", "0x%x", out->imr_type);
-		for (i = 0; i < ARRAY_SIZE(out->comp_desc); ++i) {
-			DUMP_KEY("comp.version", "0x%x", out->comp_desc[i].version);
-			DUMP_KEY("comp.base_offset", "0x%x", out->comp_desc[i].base_offset);
-		}
-	}
+	if (verbose)
+		dump_adsp_file_ext_v2_5(out);
 
 	/*
 	 * values set in other places in code:
@@ -1049,8 +1090,23 @@ static int parse_mem_adsp_file_ext_v2_5(const toml_table_t *toml, struct parse_c
 	return 0;
 }
 
-static int parse_mem_fw_desc(const toml_table_t *toml, struct parse_ctx *pctx,
-			     struct sof_man_fw_desc *out, bool verbose)
+static void dump_fw_desc(const struct sof_man_fw_desc *fw_desc)
+{
+	DUMP("\nfw_desc.header");
+	DUMP_KEY("header_id", "'%c%c%c%c'", fw_desc->header.header_id[0],
+		 fw_desc->header.header_id[1], fw_desc->header.header_id[2],
+		 fw_desc->header.header_id[3]);
+	DUMP_KEY("name", "'%s'", fw_desc->header.name);
+	DUMP_KEY("preload_page_count", "%d", fw_desc->header.preload_page_count);
+	DUMP_KEY("fw_image_flags", "0x%x", fw_desc->header.fw_image_flags);
+	DUMP_KEY("feature_mask", "0x%x", fw_desc->header.feature_mask);
+	DUMP_KEY("hw_buf_base_addr", "0x%x", fw_desc->header.hw_buf_base_addr);
+	DUMP_KEY("hw_buf_length", "0x%x", fw_desc->header.hw_buf_length);
+	DUMP_KEY("load_offset", "0x%x", fw_desc->header.load_offset);
+}
+
+static int parse_fw_desc(const toml_table_t *toml, struct parse_ctx *pctx,
+			 struct sof_man_fw_desc *out, bool verbose)
 {
 	static const uint8_t header_id[4] = SOF_MAN_FW_HDR_ID;
 	struct parse_ctx ctx;
@@ -1116,19 +1172,8 @@ static int parse_mem_fw_desc(const toml_table_t *toml, struct parse_ctx *pctx,
 	if (ret < 0)
 		return ret;
 
-	if (verbose) {
-		DUMP("\nfw_desc.header");
-		DUMP_KEY("header_id", "'%c%c%c%c'", out->header.header_id[0],
-			 out->header.header_id[1], out->header.header_id[2],
-			 out->header.header_id[3]);
-		DUMP_KEY("name", "'%s'", out->header.name);
-		DUMP_KEY("preload_page_count", "%d", out->header.preload_page_count);
-		DUMP_KEY("fw_image_flags", "0x%x", out->header.fw_image_flags);
-		DUMP_KEY("feature_mask", "0x%x", out->header.feature_mask);
-		DUMP_KEY("hw_buf_base_addr", "0x%x", out->header.hw_buf_base_addr);
-		DUMP_KEY("hw_buf_length", "0x%x", out->header.hw_buf_length);
-		DUMP_KEY("load_offset", "0x%x", out->header.load_offset);
-	}
+	if (verbose)
+		dump_fw_desc(out);
 
 	/*
 	 * values set in other places in code:
@@ -1165,28 +1210,28 @@ static int parse_adsp_config_v1_8(const toml_table_t *toml, struct adsp *out,
 	if (ret < 0)
 		return err_key_parse("adsp", NULL);
 
-	ret = parse_mem_cse(toml, &ctx, &out->man_v1_8->cse_partition_dir_header,
-			    out->man_v1_8->cse_partition_dir_entry, MAN_CSE_PARTS, verbose);
+	ret = parse_cse(toml, &ctx, &out->man_v1_8->cse_partition_dir_header,
+			out->man_v1_8->cse_partition_dir_entry, MAN_CSE_PARTS, verbose);
 	if (ret < 0)
 		return err_key_parse("cse", NULL);
 
-	ret = parse_mem_css_v1_8(toml, &ctx, &out->man_v1_8->css, verbose);
+	ret = parse_css_v1_8(toml, &ctx, &out->man_v1_8->css, verbose);
 	if (ret < 0)
 		return err_key_parse("css", NULL);
 
-	ret = parse_mem_signed_pkg(toml, &ctx, &out->man_v1_8->signed_pkg, verbose);
+	ret = parse_signed_pkg(toml, &ctx, &out->man_v1_8->signed_pkg, verbose);
 	if (ret < 0)
 		return err_key_parse("signed_pkg", NULL);
 
-	ret = parse_mem_partition_info_ext(toml, &ctx, &out->man_v1_8->partition_info, verbose);
+	ret = parse_partition_info_ext(toml, &ctx, &out->man_v1_8->partition_info, verbose);
 	if (ret < 0)
 		return err_key_parse("partition_info", NULL);
 
-	ret = parse_mem_adsp_file_ext_v1_8(toml, &ctx, &out->man_v1_8->adsp_file_ext, verbose);
+	ret = parse_adsp_file_ext_v1_8(toml, &ctx, &out->man_v1_8->adsp_file_ext, verbose);
 	if (ret < 0)
 		return err_key_parse("adsp_file", NULL);
 
-	ret = parse_mem_fw_desc(toml, &ctx, &out->man_v1_8->desc, verbose);
+	ret = parse_fw_desc(toml, &ctx, &out->man_v1_8->desc, verbose);
 	if (ret < 0)
 		return err_key_parse("fw_desc", NULL);
 
@@ -1222,28 +1267,28 @@ static int parse_adsp_config_v2_5(const toml_table_t *toml, struct adsp *out,
 	if (ret < 0)
 		return err_key_parse("adsp", NULL);
 
-	ret = parse_mem_cse(toml, &ctx, &out->man_v2_5->cse_partition_dir_header,
-			    out->man_v2_5->cse_partition_dir_entry, MAN_CSE_PARTS, verbose);
+	ret = parse_cse(toml, &ctx, &out->man_v2_5->cse_partition_dir_header,
+			out->man_v2_5->cse_partition_dir_entry, MAN_CSE_PARTS, verbose);
 	if (ret < 0)
 		return err_key_parse("cse", NULL);
 
-	ret = parse_mem_css_v1_8(toml, &ctx, &out->man_v2_5->css, verbose);
+	ret = parse_css_v1_8(toml, &ctx, &out->man_v2_5->css, verbose);
 	if (ret < 0)
 		return err_key_parse("css", NULL);
 
-	ret = parse_mem_signed_pkg(toml, &ctx, &out->man_v2_5->signed_pkg, verbose);
+	ret = parse_signed_pkg(toml, &ctx, &out->man_v2_5->signed_pkg, verbose);
 	if (ret < 0)
 		return err_key_parse("signed_pkg", NULL);
 
-	ret = parse_mem_partition_info_ext(toml, &ctx, &out->man_v2_5->partition_info, verbose);
+	ret = parse_partition_info_ext(toml, &ctx, &out->man_v2_5->partition_info, verbose);
 	if (ret < 0)
 		return err_key_parse("partition_info", NULL);
 
-	ret = parse_mem_adsp_file_ext_v2_5(toml, &ctx, &out->man_v2_5->adsp_file_ext, verbose);
+	ret = parse_adsp_file_ext_v2_5(toml, &ctx, &out->man_v2_5->adsp_file_ext, verbose);
 	if (ret < 0)
 		return err_key_parse("adsp_file", NULL);
 
-	ret = parse_mem_fw_desc(toml, &ctx, &out->man_v2_5->desc, verbose);
+	ret = parse_fw_desc(toml, &ctx, &out->man_v2_5->desc, verbose);
 	if (ret < 0)
 		return err_key_parse("fw_desc", NULL);
 
